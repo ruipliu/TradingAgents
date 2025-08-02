@@ -148,6 +148,64 @@ def create_initial_state(
     return initial_state
 
 # =============================================================================
+# DEBUGGING HELPER FUNCTIONS
+# =============================================================================
+
+def display_tool_call_details(tool_call, index: int):
+    """Display detailed information about a tool call."""
+    console.print(f"  [bold cyan]Tool Call {index}:[/bold cyan]")
+    console.print(f"    Name: {tool_call.get('name', 'Unknown')}")
+    console.print(f"    ID: {tool_call.get('id', 'No ID')}")
+
+    # Display arguments in a formatted way
+    args = tool_call.get('args', {})
+    if args:
+        console.print(f"    Arguments:")
+        for key, value in args.items():
+            # Truncate long values
+            if isinstance(value, str) and len(value) > 100:
+                value = value[:100] + "..."
+            console.print(f"      {key}: {value}")
+    else:
+        console.print(f"    Arguments: None")
+
+def display_tool_response_details(message, index: int):
+    """Display detailed information about a tool response."""
+    console.print(f"  [bold green]Tool Response {index}:[/bold green]")
+
+    if hasattr(message, 'name'):
+        console.print(f"    Tool: {message.name}")
+
+    if hasattr(message, 'tool_call_id'):
+        console.print(f"    Call ID: {message.tool_call_id}")
+
+    if hasattr(message, 'content'):
+        content = str(message.content)
+        # Show first 300 characters and indicate if truncated
+        if len(content) > 300:
+            console.print(f"    Content: {content[:300]}...")
+            console.print(f"    [dim](Content truncated, full length: {len(content)} characters)[/dim]")
+        else:
+            console.print(f"    Content: {content}")
+
+def display_message_details(message, title: str):
+    """Display detailed information about any message."""
+    console.print(f"\n[bold yellow]{title}[/bold yellow]")
+
+    if hasattr(message, 'content'):
+        content = str(message.content)
+        if len(content) > 500:
+            console.print(f"Content: {content[:500]}...")
+            console.print(f"[dim](Content truncated, full length: {len(content)} characters)[/dim]")
+        else:
+            console.print(f"Content: {content}")
+
+    if hasattr(message, 'tool_calls') and message.tool_calls:
+        console.print(f"Tool Calls: {len(message.tool_calls)}")
+        for i, tool_call in enumerate(message.tool_calls):
+            display_tool_call_details(tool_call, i + 1)
+
+# =============================================================================
 # INDIVIDUAL AGENT TESTING FUNCTIONS
 # =============================================================================
 
@@ -157,7 +215,7 @@ def test_market_analyst(
     config: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
-    Test the Market Analyst individually.
+    Test the Market Analyst individually with detailed tool call debugging.
 
     Args:
         ticker: Stock ticker to analyze
@@ -171,36 +229,105 @@ def test_market_analyst(
 
     # Create graph with only market analyst
     graph = create_debug_graph(["market"], config)
-    initial_state = create_initial_state(ticker, trade_date)
+    initial_state = graph.propagator.create_initial_state(ticker, trade_date)
 
-    # Get the market analyst node
-    market_node = graph.graph_setup.setup_graph(["market"]).nodes["market"]
 
-    console.print(f"[yellow]Running market analysis for {ticker}...[/yellow]")
+    # Get the market analyst node and tool node
+    market_graph = graph.graph_setup.setup_graph(["market"])
+    market_node = market_graph.nodes["Market Analyst"]
+    tools_node = market_graph.nodes["tools_market"]
 
     try:
-        result = market_node(initial_state)
+        # Step 1: Run the market analyst
+        console.print(f"\n[bold blue]Step 1: Running Market Analyst[/bold blue]")
+        result = market_node.invoke(initial_state)
 
-        # Display results
-        if result.get("market_report"):
-            console.print(Panel(
-                Markdown(result["market_report"]),
-                title="Market Analysis Report",
-                border_style="green"
-            ))
+        # Display the analyst's initial response
+        if result.get("messages"):
+            last_message = result["messages"][-1]
+            console.print(f"[green]✓ Market analyst completed initial analysis[/green]")
 
-        # Display tool calls if any
-        if result.get("messages") and hasattr(result["messages"][-1], "tool_calls"):
-            tool_calls = result["messages"][-1].tool_calls
-            if tool_calls:
-                console.print(f"[blue]Tool calls made: {len(tool_calls)}[/blue]")
-                for i, call in enumerate(tool_calls):
-                    console.print(f"  {i+1}. {call.get('name', 'Unknown tool')}")
+            # Check if tool calls were made
+            if hasattr(last_message, "tool_calls") and last_message.tool_calls:
+                console.print(f"\n[bold blue]Step 2: Tool Calls Made ({len(last_message.tool_calls)})[/bold blue]")
 
-        return result
+                # Display each tool call with detailed information
+                for i, tool_call in enumerate(last_message.tool_calls):
+                    display_tool_call_details(tool_call, i + 1)
+
+                # Step 2: Execute the tools
+                console.print(f"\n[bold blue]Step 3: Executing Tools[/bold blue]")
+                tool_result = tools_node.invoke(result)
+
+                # Debug: Check what's in tool_result
+                console.print(f"[dim]Debug - tool_result keys: {list(tool_result.keys())}[/dim]")
+
+                # Ensure we preserve the original state fields
+                preserved_state = {
+                    "trade_date": initial_state["trade_date"],
+                    "company_of_interest": initial_state["company_of_interest"],
+                    "market_report": initial_state.get("market_report", "")
+                }
+                tool_result.update(preserved_state)
+
+                # Display tool results
+                if tool_result.get("messages"):
+                    # Get new messages (tool responses)
+                    original_msg_count = len(result.get("messages", []))
+                    tool_messages = tool_result["messages"][original_msg_count-1:]
+                    console.print(f"[green]✓ Tools executed, {len(tool_messages)} tool responses received[/green]")
+
+                    # Show detailed tool responses
+                    for i, msg in enumerate(tool_messages):
+                        display_tool_response_details(msg, i + 1)
+
+                # Step 3: Run analyst again with tool results
+                console.print(f"\n[bold blue]Step 4: Market Analyst Processing Tool Results[/bold blue]")
+                final_result = market_node.invoke(tool_result)
+
+                # Merge the final result with the original state to preserve all fields
+                merged_result = {**tool_result, **final_result}
+
+                # Display the final analyst message
+                if final_result.get("messages"):
+                    final_message = final_result["messages"][-1]
+                    display_message_details(final_message, "Final Analyst Response")
+
+                # Display final analysis report
+                if final_result.get("market_report"):
+                    console.print(Panel(
+                        Markdown(final_result["market_report"]),
+                        title="Final Market Analysis Report",
+                        border_style="green"
+                    ))
+                else:
+                    console.print("[yellow]No market report generated in final result[/yellow]")
+
+                # Summary
+                console.print(f"\n[bold green]✓ Market Analyst Debug Complete[/bold green]")
+                console.print(f"  Total messages in final state: {len(merged_result.get('messages', []))}")
+                console.print(f"  Market report generated: {'Yes' if final_result.get('market_report') else 'No'}")
+                console.print(f"  Company: {merged_result.get('company_of_interest', 'N/A')}")
+                console.print(f"  Trade Date: {merged_result.get('trade_date', 'N/A')}")
+
+                return merged_result
+            else:
+                console.print("[yellow]No tool calls made by market analyst[/yellow]")
+                if result.get("market_report"):
+                    console.print(Panel(
+                        Markdown(result["market_report"]),
+                        title="Market Analysis Report (No Tools)",
+                        border_style="green"
+                    ))
+                return result
+        else:
+            console.print("[red]No messages in result[/red]")
+            return result
 
     except Exception as e:
         console.print(f"[bold red]✗ Error in market analyst: {e}[/bold red]")
+        import traceback
+        console.print(f"[red]Traceback: {traceback.format_exc()}[/red]")
         raise
 
 def test_social_analyst(
@@ -992,9 +1119,9 @@ if __name__ == '__main__':
     """
 
     # Example 1: Test individual market analyst
-    # console.print("[bold blue]Example 1: Testing Market Analyst[/bold blue]")
-    # config = create_debug_config(online_tools=False)  # Use cached data for faster testing
-    # result = test_market_analyst("AAPL", "2024-01-15", config)
+    console.print("[bold blue]Example 1: Testing Market Analyst[/bold blue]")
+    config = create_debug_config(online_tools=True)  # Use cached data for faster testing
+    result = test_market_analyst("AAPL", "2024-01-15", config)
 
     # Example 2: Test all analysts
     # console.print("[bold blue]Example 2: Testing All Analysts[/bold blue]")
@@ -1017,4 +1144,4 @@ if __name__ == '__main__':
     # trace = test_streaming_analysis("AAPL", "2024-01-15", config, ["market"])
 
     # Interactive menu (uncomment to use)
-    run_debug_menu()
+    # run_debug_menu()

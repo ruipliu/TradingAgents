@@ -65,8 +65,8 @@ class TradingAgentsGraph:
             self.deep_thinking_llm = ChatAnthropic(model=self.config["deep_think_llm"], base_url=self.config["backend_url"])
             self.quick_thinking_llm = ChatAnthropic(model=self.config["quick_think_llm"], base_url=self.config["backend_url"])
         elif self.config["llm_provider"].lower() == "google":
-            self.deep_thinking_llm = ChatGoogleGenerativeAI(model=self.config["deep_think_llm"])
-            self.quick_thinking_llm = ChatGoogleGenerativeAI(model=self.config["quick_think_llm"])
+            self.deep_thinking_llm = ChatGoogleGenerativeAI(model=self.config["deep_think_llm"], api_key=os.environ["GOOGLE_API_KEY"])
+            self.quick_thinking_llm = ChatGoogleGenerativeAI(model=self.config["quick_think_llm"], api_key=os.environ["GOOGLE_API_KEY"])
         else:
             raise ValueError(f"Unsupported LLM provider: {self.config['llm_provider']}")
         
@@ -154,14 +154,14 @@ class TradingAgentsGraph:
             ),
         }
 
-    def propagate(self, company_name, trade_date):
+    def propagate(self, symbol, trade_date):
         """Run the trading agents graph for a company on a specific date."""
 
-        self.ticker = company_name
+        self.ticker = symbol
 
         # Initialize state
         init_agent_state = self.propagator.create_initial_state(
-            company_name, trade_date
+            symbol, trade_date
         )
         args = self.propagator.get_graph_args()
 
