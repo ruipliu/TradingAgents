@@ -47,18 +47,17 @@ class MessageBuffer:
             "Social Analyst": "pending",
             "News Analyst": "pending",
             "Fundamentals Analyst": "pending",
-            # Research Team
-            "Bull Researcher": "pending",
-            "Bear Researcher": "pending",
-            "Research Manager": "pending",
-            # Trading Team
-            "Trader": "pending",
-            # Risk Management Team
-            "Risky Analyst": "pending",
-            "Neutral Analyst": "pending",
-            "Safe Analyst": "pending",
-            # Portfolio Management Team
-            "Portfolio Manager": "pending",
+            # Comprehensive Decision Agent (replaces multiple agents)
+            "Comprehensive Decision Agent": "pending",
+            # Legacy agents (commented out in graph)
+            # "Bull Researcher": "pending",
+            # "Bear Researcher": "pending",
+            # "Research Manager": "pending",
+            # "Trader": "pending",
+            # "Risky Analyst": "pending",
+            # "Neutral Analyst": "pending",
+            # "Safe Analyst": "pending",
+            # "Portfolio Manager": "pending",
         }
         self.current_agent = None
         self.report_sections = {
@@ -107,9 +106,9 @@ class MessageBuffer:
                 "sentiment_report": "Social Sentiment",
                 "news_report": "News Analysis",
                 "fundamentals_report": "Fundamentals Analysis",
-                "investment_plan": "Research Team Decision",
-                "trader_investment_plan": "Trading Team Plan",
-                "final_trade_decision": "Portfolio Management Decision",
+                "investment_plan": "Comprehensive Decision Analysis",
+                "trader_investment_plan": "Trading Plan",
+                "final_trade_decision": "Final Trading Decision",
             }
             self.current_report = (
                 f"### {section_titles[latest_section]}\n{latest_content}"
@@ -149,19 +148,19 @@ class MessageBuffer:
                     f"### Fundamentals Analysis\n{self.report_sections['fundamentals_report']}"
                 )
 
-        # Research Team Reports
+        # Comprehensive Decision Reports
         if self.report_sections["investment_plan"]:
-            report_parts.append("## Research Team Decision")
+            report_parts.append("## Comprehensive Decision Analysis")
             report_parts.append(f"{self.report_sections['investment_plan']}")
 
-        # Trading Team Reports
+        # Trading Plan
         if self.report_sections["trader_investment_plan"]:
-            report_parts.append("## Trading Team Plan")
+            report_parts.append("## Trading Plan")
             report_parts.append(f"{self.report_sections['trader_investment_plan']}")
 
-        # Portfolio Management Decision
+        # Final Trading Decision
         if self.report_sections["final_trade_decision"]:
-            report_parts.append("## Portfolio Management Decision")
+            report_parts.append("## Final Trading Decision")
             report_parts.append(f"{self.report_sections['final_trade_decision']}")
 
         self.final_report = "\n\n".join(report_parts) if report_parts else None
@@ -221,10 +220,7 @@ def update_display(layout, spinner_text=None):
             "News Analyst",
             "Fundamentals Analyst",
         ],
-        "Research Team": ["Bull Researcher", "Bear Researcher", "Research Manager"],
-        "Trading Team": ["Trader"],
-        "Risk Management": ["Risky Analyst", "Neutral Analyst", "Safe Analyst"],
-        "Portfolio Management": ["Portfolio Manager"],
+        "Decision Team": ["Comprehensive Decision Agent"],
     }
 
     for team, agents in teams.items():
@@ -401,7 +397,7 @@ def get_user_selections():
     welcome_content = f"{welcome_ascii}\n"
     welcome_content += "[bold green]TradingAgents: Multi-Agents LLM Financial Trading Framework - CLI[/bold green]\n\n"
     welcome_content += "[bold]Workflow Steps:[/bold]\n"
-    welcome_content += "I. Analyst Team → II. Research Team → III. Trader → IV. Risk Management → V. Portfolio Management\n\n"
+    welcome_content += "I. Analyst Team → II. Comprehensive Decision Agent\n\n"
     welcome_content += (
         "[dim]Built by [Tauric Research](https://github.com/TauricResearch)[/dim]"
     )
@@ -493,27 +489,29 @@ def get_user_selections():
 
 
 def get_ticker():
-    """Get ticker symbol from user input."""
-    return typer.prompt("", default="SPY")
+    return "AAPL"
+    # """Get ticker symbol from user input."""
+    # return typer.prompt("", default="SPY")
 
 
 def get_analysis_date():
-    """Get the analysis date from user input."""
-    while True:
-        date_str = typer.prompt(
-            "", default=datetime.datetime.now().strftime("%Y-%m-%d")
-        )
-        try:
-            # Validate date format and ensure it's not in the future
-            analysis_date = datetime.datetime.strptime(date_str, "%Y-%m-%d")
-            if analysis_date.date() > datetime.datetime.now().date():
-                console.print("[red]Error: Analysis date cannot be in the future[/red]")
-                continue
-            return date_str
-        except ValueError:
-            console.print(
-                "[red]Error: Invalid date format. Please use YYYY-MM-DD[/red]"
-            )
+    return datetime.datetime.now().strftime("%Y-%m-%d")
+    # """Get the analysis date from user input."""
+    # while True:
+    #     date_str = typer.prompt(
+    #         "", default=datetime.datetime.now().strftime("%Y-%m-%d")
+    #     )
+    #     try:
+    #         # Validate date format and ensure it's not in the future
+    #         analysis_date = datetime.datetime.strptime(date_str, "%Y-%m-%d")
+    #         if analysis_date.date() > datetime.datetime.now().date():
+    #             console.print("[red]Error: Analysis date cannot be in the future[/red]")
+    #             continue
+    #         return date_str
+    #     except ValueError:
+    #         console.print(
+    #             "[red]Error: Invalid date format. Please use YYYY-MM-DD[/red]"
+    #         )
 
 
 def display_complete_report(final_state):
@@ -577,140 +575,58 @@ def display_complete_report(final_state):
             )
         )
 
-    # II. Research Team Reports
-    if final_state.get("investment_debate_state"):
-        research_reports = []
-        debate_state = final_state["investment_debate_state"]
-
-        # Bull Researcher Analysis
-        if debate_state.get("bull_history"):
-            research_reports.append(
-                Panel(
-                    Markdown(debate_state["bull_history"]),
-                    title="Bull Researcher",
-                    border_style="blue",
-                    padding=(1, 2),
-                )
-            )
-
-        # Bear Researcher Analysis
-        if debate_state.get("bear_history"):
-            research_reports.append(
-                Panel(
-                    Markdown(debate_state["bear_history"]),
-                    title="Bear Researcher",
-                    border_style="blue",
-                    padding=(1, 2),
-                )
-            )
-
-        # Research Manager Decision
-        if debate_state.get("judge_decision"):
-            research_reports.append(
-                Panel(
-                    Markdown(debate_state["judge_decision"]),
-                    title="Research Manager",
-                    border_style="blue",
-                    padding=(1, 2),
-                )
-            )
-
-        if research_reports:
-            console.print(
-                Panel(
-                    Columns(research_reports, equal=True, expand=True),
-                    title="II. Research Team Decision",
-                    border_style="magenta",
-                    padding=(1, 2),
-                )
-            )
-
-    # III. Trading Team Reports
-    if final_state.get("trader_investment_plan"):
+    # II. Comprehensive Decision Agent Report
+    if final_state.get("investment_plan"):
         console.print(
             Panel(
                 Panel(
-                    Markdown(final_state["trader_investment_plan"]),
-                    title="Trader",
+                    Markdown(final_state["investment_plan"]),
+                    title="Comprehensive Analysis & Investment Decision",
                     border_style="blue",
                     padding=(1, 2),
                 ),
-                title="III. Trading Team Plan",
+                title="II. Comprehensive Decision Agent Analysis",
                 border_style="yellow",
                 padding=(1, 2),
             )
         )
 
-    # IV. Risk Management Team Reports
-    if final_state.get("risk_debate_state"):
-        risk_reports = []
-        risk_state = final_state["risk_debate_state"]
-
-        # Aggressive (Risky) Analyst Analysis
-        if risk_state.get("risky_history"):
-            risk_reports.append(
+    # III. Trading Plan (part of Comprehensive Decision)
+    if final_state.get("trader_investment_plan"):
+        console.print(
+            Panel(
                 Panel(
-                    Markdown(risk_state["risky_history"]),
-                    title="Aggressive Analyst",
+                    Markdown(final_state["trader_investment_plan"]),
+                    title="Trading Plan & Strategy",
                     border_style="blue",
                     padding=(1, 2),
-                )
+                ),
+                title="III. Trading Plan",
+                border_style="yellow",
+                padding=(1, 2),
             )
+        )
 
-        # Conservative (Safe) Analyst Analysis
-        if risk_state.get("safe_history"):
-            risk_reports.append(
+    # IV. Final Trading Decision (part of Comprehensive Decision)
+    if final_state.get("final_trade_decision"):
+        console.print(
+            Panel(
                 Panel(
-                    Markdown(risk_state["safe_history"]),
-                    title="Conservative Analyst",
+                    Markdown(final_state["final_trade_decision"]),
+                    title="Final Trading Decision & Risk Assessment",
                     border_style="blue",
                     padding=(1, 2),
-                )
+                ),
+                title="IV. Final Trading Decision",
+                border_style="green",
+                padding=(1, 2),
             )
-
-        # Neutral Analyst Analysis
-        if risk_state.get("neutral_history"):
-            risk_reports.append(
-                Panel(
-                    Markdown(risk_state["neutral_history"]),
-                    title="Neutral Analyst",
-                    border_style="blue",
-                    padding=(1, 2),
-                )
-            )
-
-        if risk_reports:
-            console.print(
-                Panel(
-                    Columns(risk_reports, equal=True, expand=True),
-                    title="IV. Risk Management Team Decision",
-                    border_style="red",
-                    padding=(1, 2),
-                )
-            )
-
-        # V. Portfolio Manager Decision
-        if risk_state.get("judge_decision"):
-            console.print(
-                Panel(
-                    Panel(
-                        Markdown(risk_state["judge_decision"]),
-                        title="Portfolio Manager",
-                        border_style="blue",
-                        padding=(1, 2),
-                    ),
-                    title="V. Portfolio Manager Decision",
-                    border_style="green",
-                    padding=(1, 2),
-                )
-            )
+        )
 
 
-def update_research_team_status(status):
-    """Update status for all research team members and trader."""
-    research_team = ["Bull Researcher", "Bear Researcher", "Research Manager", "Trader"]
-    for agent in research_team:
-        message_buffer.update_agent_status(agent, status)
+def update_comprehensive_agent_status(status):
+    """Update status for comprehensive decision agent."""
+    message_buffer.update_agent_status("Comprehensive Decision Agent", status)
 
 def extract_content_string(content):
     """Extract string content from various message formats."""
@@ -913,160 +829,30 @@ def run_analysis():
                         "Fundamentals Analyst", "completed"
                     )
                     # Set all research team members to in_progress
-                    update_research_team_status("in_progress")
+                    # update_research_team_status("in_progress")
 
-                # Research Team - Handle Investment Debate State
-                if (
-                    "investment_debate_state" in chunk
-                    and chunk["investment_debate_state"]
-                ):
-                    debate_state = chunk["investment_debate_state"]
+                # Comprehensive Decision Agent - Handle Investment Plan
+                if "investment_plan" in chunk and chunk["investment_plan"]:
+                    update_comprehensive_agent_status("in_progress")
+                    message_buffer.add_message("Reasoning", chunk["investment_plan"])
+                    message_buffer.update_report_section(
+                        "investment_plan", chunk["investment_plan"]
+                    )
 
-                    # Update Bull Researcher status and report
-                    if "bull_history" in debate_state and debate_state["bull_history"]:
-                        # Keep all research team members in progress
-                        update_research_team_status("in_progress")
-                        # Extract latest bull response
-                        bull_responses = debate_state["bull_history"].split("\n")
-                        latest_bull = bull_responses[-1] if bull_responses else ""
-                        if latest_bull:
-                            message_buffer.add_message("Reasoning", latest_bull)
-                            # Update research report with bull's latest analysis
-                            message_buffer.update_report_section(
-                                "investment_plan",
-                                f"### Bull Researcher Analysis\n{latest_bull}",
-                            )
-
-                    # Update Bear Researcher status and report
-                    if "bear_history" in debate_state and debate_state["bear_history"]:
-                        # Keep all research team members in progress
-                        update_research_team_status("in_progress")
-                        # Extract latest bear response
-                        bear_responses = debate_state["bear_history"].split("\n")
-                        latest_bear = bear_responses[-1] if bear_responses else ""
-                        if latest_bear:
-                            message_buffer.add_message("Reasoning", latest_bear)
-                            # Update research report with bear's latest analysis
-                            message_buffer.update_report_section(
-                                "investment_plan",
-                                f"{message_buffer.report_sections['investment_plan']}\n\n### Bear Researcher Analysis\n{latest_bear}",
-                            )
-
-                    # Update Research Manager status and final decision
-                    if (
-                        "judge_decision" in debate_state
-                        and debate_state["judge_decision"]
-                    ):
-                        # Keep all research team members in progress until final decision
-                        update_research_team_status("in_progress")
-                        message_buffer.add_message(
-                            "Reasoning",
-                            f"Research Manager: {debate_state['judge_decision']}",
-                        )
-                        # Update research report with final decision
-                        message_buffer.update_report_section(
-                            "investment_plan",
-                            f"{message_buffer.report_sections['investment_plan']}\n\n### Research Manager Decision\n{debate_state['judge_decision']}",
-                        )
-                        # Mark all research team members as completed
-                        update_research_team_status("completed")
-                        # Set first risk analyst to in_progress
-                        message_buffer.update_agent_status(
-                            "Risky Analyst", "in_progress"
-                        )
-
-                # Trading Team
-                if (
-                    "trader_investment_plan" in chunk
-                    and chunk["trader_investment_plan"]
-                ):
+                # Comprehensive Decision Agent - Handle Trading Plan
+                if "trader_investment_plan" in chunk and chunk["trader_investment_plan"]:
+                    update_comprehensive_agent_status("in_progress")
                     message_buffer.update_report_section(
                         "trader_investment_plan", chunk["trader_investment_plan"]
                     )
-                    # Set first risk analyst to in_progress
-                    message_buffer.update_agent_status("Risky Analyst", "in_progress")
 
-                # Risk Management Team - Handle Risk Debate State
-                if "risk_debate_state" in chunk and chunk["risk_debate_state"]:
-                    risk_state = chunk["risk_debate_state"]
-
-                    # Update Risky Analyst status and report
-                    if (
-                        "current_risky_response" in risk_state
-                        and risk_state["current_risky_response"]
-                    ):
-                        message_buffer.update_agent_status(
-                            "Risky Analyst", "in_progress"
-                        )
-                        message_buffer.add_message(
-                            "Reasoning",
-                            f"Risky Analyst: {risk_state['current_risky_response']}",
-                        )
-                        # Update risk report with risky analyst's latest analysis only
-                        message_buffer.update_report_section(
-                            "final_trade_decision",
-                            f"### Risky Analyst Analysis\n{risk_state['current_risky_response']}",
-                        )
-
-                    # Update Safe Analyst status and report
-                    if (
-                        "current_safe_response" in risk_state
-                        and risk_state["current_safe_response"]
-                    ):
-                        message_buffer.update_agent_status(
-                            "Safe Analyst", "in_progress"
-                        )
-                        message_buffer.add_message(
-                            "Reasoning",
-                            f"Safe Analyst: {risk_state['current_safe_response']}",
-                        )
-                        # Update risk report with safe analyst's latest analysis only
-                        message_buffer.update_report_section(
-                            "final_trade_decision",
-                            f"### Safe Analyst Analysis\n{risk_state['current_safe_response']}",
-                        )
-
-                    # Update Neutral Analyst status and report
-                    if (
-                        "current_neutral_response" in risk_state
-                        and risk_state["current_neutral_response"]
-                    ):
-                        message_buffer.update_agent_status(
-                            "Neutral Analyst", "in_progress"
-                        )
-                        message_buffer.add_message(
-                            "Reasoning",
-                            f"Neutral Analyst: {risk_state['current_neutral_response']}",
-                        )
-                        # Update risk report with neutral analyst's latest analysis only
-                        message_buffer.update_report_section(
-                            "final_trade_decision",
-                            f"### Neutral Analyst Analysis\n{risk_state['current_neutral_response']}",
-                        )
-
-                    # Update Portfolio Manager status and final decision
-                    if "judge_decision" in risk_state and risk_state["judge_decision"]:
-                        message_buffer.update_agent_status(
-                            "Portfolio Manager", "in_progress"
-                        )
-                        message_buffer.add_message(
-                            "Reasoning",
-                            f"Portfolio Manager: {risk_state['judge_decision']}",
-                        )
-                        # Update risk report with final decision only
-                        message_buffer.update_report_section(
-                            "final_trade_decision",
-                            f"### Portfolio Manager Decision\n{risk_state['judge_decision']}",
-                        )
-                        # Mark risk analysts as completed
-                        message_buffer.update_agent_status("Risky Analyst", "completed")
-                        message_buffer.update_agent_status("Safe Analyst", "completed")
-                        message_buffer.update_agent_status(
-                            "Neutral Analyst", "completed"
-                        )
-                        message_buffer.update_agent_status(
-                            "Portfolio Manager", "completed"
-                        )
+                # Comprehensive Decision Agent - Handle Final Decision
+                if "final_trade_decision" in chunk and chunk["final_trade_decision"]:
+                    update_comprehensive_agent_status("completed")
+                    message_buffer.add_message("Reasoning", chunk["final_trade_decision"])
+                    message_buffer.update_report_section(
+                        "final_trade_decision", chunk["final_trade_decision"]
+                    )
 
                 # Update the display
                 update_display(layout)

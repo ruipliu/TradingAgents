@@ -19,6 +19,8 @@ from .managers.risk_manager import create_risk_manager
 
 from .trader.trader import create_trader
 
+from .comprehensive.comprehensive_decision_agent import create_comprehensive_decision_agent
+
 __all__ = [
     "FinancialSituationMemory",
     "Toolkit",
@@ -38,4 +40,5 @@ __all__ = [
     "create_safe_debator",
     "create_social_media_analyst",
     "create_trader",
+    "create_comprehensive_decision_agent",
 ]

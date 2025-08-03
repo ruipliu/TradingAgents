@@ -13,6 +13,7 @@ import pandas as pd
 from tqdm import tqdm
 import yfinance as yf
 from openai import OpenAI
+import requests
 from .config import get_config, set_config, DATA_DIR
 
 
@@ -805,3 +806,169 @@ def get_fundamentals_openai(ticker, curr_date):
     )
 
     return response.output[1].content[0].text
+
+
+def get_finnhub_company_fundamentals(
+    ticker: Annotated[str, "ticker symbol for the company"],
+    curr_date: Annotated[str, "current date in yyyy-mm-dd format"],
+):
+    """
+    Retrieve company fundamental data from Finnhub API including basic financials and company profile.
+    Args:
+        ticker (str): ticker symbol of the company
+        curr_date (str): current date in yyyy-mm-dd format
+    Returns:
+        str: a comprehensive report of the company's fundamental information including financial metrics
+    """
+    api_key = os.getenv('FINNHUB_API_KEY')
+    if not api_key:
+        return "Error: FINNHUB_API_KEY not found in environment variables"
+
+    base_url = "https://finnhub.io/api/v1"
+    headers = {"X-Finnhub-Token": api_key}
+
+    try:
+        # Get company profile
+        profile_url = f"{base_url}/stock/profile2"
+        profile_params = {"symbol": ticker.upper()}
+        profile_response = requests.get(profile_url, headers=headers, params=profile_params)
+
+        # Get basic financials
+        financials_url = f"{base_url}/stock/metric"
+        financials_params = {"symbol": ticker.upper(), "metric": "all"}
+        financials_response = requests.get(financials_url, headers=headers, params=financials_params)
+
+        if profile_response.status_code != 200:
+            return f"Error fetching company profile: HTTP {profile_response.status_code}"
+
+        if financials_response.status_code != 200:
+            return f"Error fetching company financials: HTTP {financials_response.status_code}"
+
+        profile_data = profile_response.json()
+        financials_data = financials_response.json()
+
+        # Format the response
+        report = f"# Fundamental Analysis for {ticker.upper()} as of {curr_date}\n\n"
+
+        # Company Profile Section
+        if profile_data:
+            report += "## Company Profile\n"
+            report += f"**Name:** {profile_data.get('name', 'N/A')}\n"
+            report += f"**Industry:** {profile_data.get('finnhubIndustry', 'N/A')}\n"
+            report += f"**Country:** {profile_data.get('country', 'N/A')}\n"
+            report += f"**Exchange:** {profile_data.get('exchange', 'N/A')}\n"
+            report += f"**Market Cap:** ${profile_data.get('marketCapitalization', 'N/A'):,} million\n"
+            report += f"**Website:** {profile_data.get('weburl', 'N/A')}\n"
+            report += f"**IPO Date:** {profile_data.get('ipo', 'N/A')}\n"
+            report += f"**Outstanding Shares:** {profile_data.get('shareOutstanding', 'N/A'):,} million\n\n"
+
+        # Financial Metrics Section
+        if financials_data and 'metric' in financials_data:
+            metrics = financials_data['metric']
+            report += "## Key Financial Metrics\n"
+
+            # Valuation Metrics
+            report += "### Valuation Metrics\n"
+            report += f"**P/E Ratio (TTM):** {metrics.get('peBasicExclExtraTTM', 'N/A')}\n"
+            report += f"**P/S Ratio (TTM):** {metrics.get('psAnnual', 'N/A')}\n"
+            report += f"**P/B Ratio:** {metrics.get('pbAnnual', 'N/A')}\n"
+            report += f"**EV/EBITDA (TTM):** {metrics.get('evEbitdaTTM', 'N/A')}\n"
+            report += f"**EV/Sales (TTM):** {metrics.get('evSalesTTM', 'N/A')}\n\n"
+
+            # Profitability Metrics
+            report += "### Profitability Metrics\n"
+            report += f"**ROE (Return on Equity):** {metrics.get('roeRfy', 'N/A')}%\n"
+            report += f"**ROA (Return on Assets):** {metrics.get('roaRfy', 'N/A')}%\n"
+            report += f"**ROIC (Return on Invested Capital):** {metrics.get('roicRfy', 'N/A')}%\n"
+            report += f"**Gross Margin (TTM):** {metrics.get('grossMarginTTM', 'N/A')}%\n"
+            report += f"**Operating Margin (TTM):** {metrics.get('operatingMarginTTM', 'N/A')}%\n"
+            report += f"**Net Margin (TTM):** {metrics.get('netProfitMarginTTM', 'N/A')}%\n\n"
+
+            # Growth Metrics
+            report += "### Growth Metrics\n"
+            report += f"**Revenue Growth (5Y Annual):** {metrics.get('revenueGrowthTTMYoy', 'N/A')}%\n"
+            report += f"**EPS Growth (5Y Annual):** {metrics.get('epsGrowthTTMYoy', 'N/A')}%\n\n"
+
+            # Financial Health
+            report += "### Financial Health\n"
+            report += f"**Current Ratio:** {metrics.get('currentRatioAnnual', 'N/A')}\n"
+            report += f"**Quick Ratio:** {metrics.get('quickRatioAnnual', 'N/A')}\n"
+            report += f"**Debt/Equity Ratio:** {metrics.get('totalDebtToEquityAnnual', 'N/A')}\n"
+            report += f"**Interest Coverage:** {metrics.get('interestCoverageAnnual', 'N/A')}\n\n"
+
+            # Stock Performance
+            report += "### Stock Performance\n"
+            report += f"**52-Week High:** ${metrics.get('52WeekHigh', 'N/A')}\n"
+            report += f"**52-Week Low:** ${metrics.get('52WeekLow', 'N/A')}\n"
+            report += f"**Beta:** {metrics.get('beta', 'N/A')}\n\n"
+
+        # Summary table
+        if financials_data and 'metric' in financials_data:
+            metrics = financials_data['metric']
+            report += "## Summary Table\n\n"
+            report += "| Metric | Value |\n"
+            report += "|--------|-------|\n"
+            report += f"| P/E Ratio | {metrics.get('peBasicExclExtraTTM', 'N/A')} |\n"
+            report += f"| P/S Ratio | {metrics.get('psAnnual', 'N/A')} |\n"
+            report += f"| P/B Ratio | {metrics.get('pbAnnual', 'N/A')} |\n"
+            report += f"| ROE | {metrics.get('roeRfy', 'N/A')}% |\n"
+            report += f"| ROA | {metrics.get('roaRfy', 'N/A')}% |\n"
+            report += f"| Gross Margin | {metrics.get('grossMarginTTM', 'N/A')}% |\n"
+            report += f"| Operating Margin | {metrics.get('operatingMarginTTM', 'N/A')}% |\n"
+            report += f"| Net Margin | {metrics.get('netProfitMarginTTM', 'N/A')}% |\n"
+            report += f"| Current Ratio | {metrics.get('currentRatioAnnual', 'N/A')} |\n"
+            report += f"| Debt/Equity | {metrics.get('totalDebtToEquityAnnual', 'N/A')} |\n"
+            report += f"| 52W High | ${metrics.get('52WeekHigh', 'N/A')} |\n"
+            report += f"| 52W Low | ${metrics.get('52WeekLow', 'N/A')} |\n"
+
+        return report
+
+    except requests.exceptions.RequestException as e:
+        return f"Error making API request: {str(e)}"
+    except json.JSONDecodeError as e:
+        return f"Error parsing API response: {str(e)}"
+    except Exception as e:
+        return f"Unexpected error: {str(e)}"
+
+
+def get_google_fundamentals_search(
+    ticker: Annotated[str, "ticker symbol for the company"],
+    curr_date: Annotated[str, "current date in yyyy-mm-dd format"],
+):
+    """
+    Search Google for fundamental analysis and financial data about a company.
+    Args:
+        ticker (str): ticker symbol of the company
+        curr_date (str): current date in yyyy-mm-dd format
+    Returns:
+        str: a report containing fundamental information found through Google search
+    """
+    try:
+        # Search for fundamental analysis
+        fundamental_queries = [
+            f"{ticker} fundamental analysis financial metrics",
+            f"{ticker} P/E ratio price to earnings financial ratios",
+            f"{ticker} earnings report quarterly results",
+            f"{ticker} balance sheet cash flow income statement"
+        ]
+
+        report = f"# Fundamental Analysis for {ticker.upper()} via Google Search as of {curr_date}\n\n"
+
+        for i, query in enumerate(fundamental_queries):
+            try:
+                search_results = get_google_news(query, curr_date, 30)  # Look back 30 days
+                if search_results:
+                    report += f"## Search Results for: {query}\n\n"
+                    report += search_results + "\n\n"
+            except Exception as e:
+                report += f"## Error searching for: {query}\n"
+                report += f"Error: {str(e)}\n\n"
+
+        if len(report.split('\n')) < 10:  # If very little content found
+            report += "## Note\n"
+            report += "Limited fundamental data found through Google search. Consider using alternative data sources or checking if the ticker symbol is correct.\n"
+
+        return report
+
+    except Exception as e:
+        return f"Error performing Google search for fundamentals: {str(e)}"

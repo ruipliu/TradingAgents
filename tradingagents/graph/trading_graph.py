@@ -72,12 +72,15 @@ class TradingAgentsGraph:
         
         self.toolkit = Toolkit(config=self.config)
 
-        # Initialize memories
-        self.bull_memory = FinancialSituationMemory("bull_memory", self.config)
-        self.bear_memory = FinancialSituationMemory("bear_memory", self.config)
-        self.trader_memory = FinancialSituationMemory("trader_memory", self.config)
-        self.invest_judge_memory = FinancialSituationMemory("invest_judge_memory", self.config)
-        self.risk_manager_memory = FinancialSituationMemory("risk_manager_memory", self.config)
+        # Initialize unified memory for comprehensive decision agent
+        self.unified_memory = FinancialSituationMemory("unified_trading_memory", self.config)
+
+        # Keep legacy memory references for backward compatibility (all point to unified memory)
+        self.bull_memory = self.unified_memory
+        self.bear_memory = self.unified_memory
+        self.trader_memory = self.unified_memory
+        self.invest_judge_memory = self.unified_memory
+        self.risk_manager_memory = self.unified_memory
 
         # Create tool nodes
         self.tool_nodes = self._create_tool_nodes()
@@ -89,11 +92,7 @@ class TradingAgentsGraph:
             self.deep_thinking_llm,
             self.toolkit,
             self.tool_nodes,
-            self.bull_memory,
-            self.bear_memory,
-            self.trader_memory,
-            self.invest_judge_memory,
-            self.risk_manager_memory,
+            self.unified_memory,
             self.conditional_logic,
         )
 
@@ -103,7 +102,7 @@ class TradingAgentsGraph:
 
         # State tracking
         self.curr_state = None
-        self.ticker = None
+        self.symbol = None
         self.log_states_dict = {}  # date to full state dict
 
         # Set up the graph
@@ -143,7 +142,8 @@ class TradingAgentsGraph:
             "fundamentals": ToolNode(
                 [
                     # online tools
-                    self.toolkit.get_fundamentals_openai,
+                    self.toolkit.get_finnhub_company_fundamentals,
+                    self.toolkit.get_google_fundamentals_search,
                     # offline tools
                     self.toolkit.get_finnhub_company_insider_sentiment,
                     self.toolkit.get_finnhub_company_insider_transactions,
@@ -157,7 +157,7 @@ class TradingAgentsGraph:
     def propagate(self, symbol, trade_date):
         """Run the trading agents graph for a company on a specific date."""
 
-        self.ticker = symbol
+        self.symbol = symbol
 
         # Initialize state
         init_agent_state = self.propagator.create_initial_state(
@@ -222,31 +222,20 @@ class TradingAgentsGraph:
         }
 
         # Save to file
-        directory = Path(f"eval_results/{self.ticker}/TradingAgentsStrategy_logs/")
+        directory = Path(f"eval_results/{self.symbol}/TradingAgentsStrategy_logs/")
         directory.mkdir(parents=True, exist_ok=True)
 
         with open(
-            f"eval_results/{self.ticker}/TradingAgentsStrategy_logs/full_states_log_{trade_date}.json",
+            f"eval_results/{self.symbol}/TradingAgentsStrategy_logs/full_states_log_{trade_date}.json",
             "w",
         ) as f:
             json.dump(self.log_states_dict, f, indent=4)
 
     def reflect_and_remember(self, returns_losses):
-        """Reflect on decisions and update memory based on returns."""
-        self.reflector.reflect_bull_researcher(
-            self.curr_state, returns_losses, self.bull_memory
-        )
-        self.reflector.reflect_bear_researcher(
-            self.curr_state, returns_losses, self.bear_memory
-        )
-        self.reflector.reflect_trader(
-            self.curr_state, returns_losses, self.trader_memory
-        )
-        self.reflector.reflect_invest_judge(
-            self.curr_state, returns_losses, self.invest_judge_memory
-        )
-        self.reflector.reflect_risk_manager(
-            self.curr_state, returns_losses, self.risk_manager_memory
+        """Reflect on decisions and update unified memory based on returns."""
+        # Use unified reflection for comprehensive decision agent
+        self.reflector.reflect_comprehensive_decision(
+            self.curr_state, returns_losses, self.unified_memory
         )
 
     def process_signal(self, full_signal):

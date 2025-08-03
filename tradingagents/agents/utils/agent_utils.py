@@ -417,3 +417,45 @@ class Toolkit:
         )
 
         return openai_fundamentals_results
+
+    @staticmethod
+    @tool
+    def get_finnhub_company_fundamentals(
+        ticker: Annotated[str, "ticker symbol for the company"],
+        curr_date: Annotated[str, "current date in yyyy-mm-dd format"],
+    ):
+        """
+        Retrieve comprehensive fundamental data about a company using Finnhub API including financial metrics, ratios, and company profile.
+        Args:
+            ticker (str): ticker symbol of the company
+            curr_date (str): current date in yyyy-mm-dd format
+        Returns:
+            str: a comprehensive report of the company's fundamental information including P/E ratio, P/S ratio, ROE, margins, and other key metrics
+        """
+
+        fundamentals_results = interface.get_finnhub_company_fundamentals(
+            ticker, curr_date
+        )
+
+        return fundamentals_results
+
+    @staticmethod
+    @tool
+    def get_google_fundamentals_search(
+        ticker: Annotated[str, "ticker symbol for the company"],
+        curr_date: Annotated[str, "current date in yyyy-mm-dd format"],
+    ):
+        """
+        Search Google for fundamental analysis and financial information about a company.
+        Args:
+            ticker (str): ticker symbol of the company
+            curr_date (str): current date in yyyy-mm-dd format
+        Returns:
+            str: a report containing fundamental information found through Google search including financial analysis and metrics
+        """
+
+        google_fundamentals_results = interface.get_google_fundamentals_search(
+            ticker, curr_date
+        )
+
+        return google_fundamentals_results

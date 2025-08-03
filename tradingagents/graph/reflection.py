@@ -119,3 +119,23 @@ Adhere strictly to these instructions, and ensure your output is detailed, accur
             "RISK JUDGE", judge_decision, situation, returns_losses
         )
         risk_manager_memory.add_situations([(situation, result)])
+
+    def reflect_comprehensive_decision(self, current_state, returns_losses, unified_memory):
+        """Reflect on comprehensive decision agent's analysis and update unified memory."""
+        situation = self._extract_current_situation(current_state)
+
+        # Get the comprehensive decision from the final trade decision
+        comprehensive_decision = current_state.get("final_trade_decision", "")
+
+        # If no final trade decision, try to get from investment plan
+        if not comprehensive_decision:
+            comprehensive_decision = current_state.get("investment_plan", "")
+
+        # If still no decision, try trader investment plan
+        if not comprehensive_decision:
+            comprehensive_decision = current_state.get("trader_investment_plan", "")
+
+        result = self._reflect_on_component(
+            "COMPREHENSIVE DECISION", comprehensive_decision, situation, returns_losses
+        )
+        unified_memory.add_situations([(situation, result)])
